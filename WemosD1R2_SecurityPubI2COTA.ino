@@ -1,13 +1,14 @@
 #include<ESP8266WiFi.h>
-#include"PubSubClient.h"
+#include"PubSubClient.h" //Version 2.8
 #include<ArduinoOTA.h>
 #include<Wire.h>
 #include"Adafruit_MCP23017.h"
 
+#define _WLAN_HOST "WemosSecurityPub"
 #define _WLAN_SSID "MySSID"
 #define _WLAN_PASS "MyPasswrod"
 
-#define _MQTT_BROKER "10.0.1.250"
+#define _MQTT_BROKER "MyMQTTIP"
 #define _MQTT_PORT 1883
 #define _MQTT_USER "MyMQTTUser"
 #define _MQTT_PASS "MyMQTTPassword"
@@ -52,6 +53,7 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
+  WiFi.hostname(_WLAN_HOST);
   WiFi.begin(ssid, password);
 
   while (WiFi.status()!= WL_CONNECTED) {
@@ -68,9 +70,9 @@ void setup_wifi() {
 void reconnect() {
   while (!mqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");
-    if (mqttClient.connect("SecurityWemosPub", "/security/will", 1, 1, "Disconnected")) {
+    if (mqttClient.connect("SecurityWemosPub", _MQTT_USER, _MQTT_PASS, "security/LWT", 1, 1, "Disconnected")) {
       Serial.println("Connected");
-      mqttClient.publish("/security/will", "Connected", true);
+      mqttClient.publish("security/LWT", "Connected", true);
     } else {
       Serial.print("failed, rc=");
       Serial.print(mqttClient.state());
@@ -185,20 +187,10 @@ String zones[9] = {"Front Door", "Garage Door", "Deck Door","Basement Door", "Ma
 void publishState(int pin)
 {
   int rc = -1;
-  String zone;
-  String message;
-  
-  if (buttonState[pin] == LOW) {
-    zone = "/security/zone" + String(pin + 1);
-    message = "0 - Secure, Zone " + String(pin + 1) + ", " + zones[pin];
-    rc = mqttClient.publish(zone.c_str(), message.c_str(), true);
-    //Serial.println( message.c_str() );
-  }
-  else {
-    zone = "/security/zone" + String(pin + 1);
-    message = "1 - Breached, Zone " + String(pin + 1) + ", " + zones[pin];
-    rc = mqttClient.publish(zone.c_str(), message.c_str(), true);
-    //Serial.println( message.c_str() );
-  }
-}
+  String zone = "security/zone" + String(pin + 1);;
+  String message = "{\"value\":" + String(buttonState[pin]) + ", \"zoneName\":\"" + zones[pin] + "\"}";
 
+  rc = mqttClient.publish(zone.c_str(), message.c_str(), true);
+  Serial.println( message.c_str() );
+
+}
